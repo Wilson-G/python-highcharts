@@ -60,6 +60,9 @@ class Highstock(object):
         self.template_content_highcharts = template_content
         
         # set Javascript src, Highcharts lib needs to make sure it's up to date
+       
+        """
+        在线获取
         self.JSsource = [
                 'https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',
                 'https://code.highcharts.com/stock/6/highstock.js',
@@ -70,8 +73,21 @@ class Highstock(object):
         # set CSS src
         self.CSSsource = [
                 'https://www.highcharts.com/highslide/highslide.css',
-
             ]
+        """
+
+        self.JSsource = [
+                'http://127.0.0.1:808/resource/jquery.min.js',
+                'http://127.0.0.1:808/resource/highstock.js',
+                'http://127.0.0.1:808/resource/exporting.js',
+                'http://127.0.0.1:808/resource/highcharts-more.js',
+            ]
+
+        # set CSS src
+        self.CSSsource = [
+                'http://127.0.0.1:808/resource/highslide.css',
+            ]
+
         # set data
         self.data = []
         self.data_temp = []
@@ -160,7 +176,7 @@ class Highstock(object):
 
 
     def __load_defaults__(self):
-        self.options["chart"].update_dict(renderTo='container')
+        self.options["chart"].update_dict(renderTo='container',zoomType='x')
         self.options["title"].update_dict(text='A New Highchart')
         self.options["credits"].update_dict(enabled=False)
 
