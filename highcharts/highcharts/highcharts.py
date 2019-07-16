@@ -10,6 +10,7 @@ from jinja2 import Environment, PackageLoader
 import json, uuid
 import re
 import datetime
+import urllib.request, urllib.error, urllib.parse
 import html
 from collections import Iterable
 from .options import BaseOptions, ChartOptions, ColorAxisOptions, \
@@ -51,6 +52,9 @@ class Highchart(object):
         This is the base class for all the charts. The following keywords are
         accepted:
         :keyword: **display_container** - default: ``True``
+                  **offline - default: ``False``
+                            If True, download all .js and .css file and put them
+                            into the generated .html so it can be viewed offline.
         """
         # set the model
         self.model = self.__class__.__name__  #: The chart model,
@@ -59,14 +63,15 @@ class Highchart(object):
         # an Instance of Jinja2 template
         self.template_page_highcharts = template_page
         self.template_content_highcharts = template_content
+
         
         # set Javascript src, Highcharts lib needs to make sure it's up to date
         self.JSsource = [
                 'https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',
-                'https://code.highcharts.com/highcharts.js',
-                'https://code.highcharts.com/highcharts-more.js',
-                'https://code.highcharts.com/modules/heatmap.js',
-                'https://code.highcharts.com/modules/exporting.js'
+                'https://code.highcharts.com/6/highcharts.js',
+                'https://code.highcharts.com/6/highcharts-more.js',
+                'https://code.highcharts.com/6/modules/heatmap.js',
+                'https://code.highcharts.com/6/modules/exporting.js'
             ]
 
         # set CSS src
@@ -74,16 +79,20 @@ class Highchart(object):
                 'https://www.highcharts.com/highslide/highslide.css',
 
             ]
+
+        self.offline = kwargs.get("offline", False)
+
         # set data
         self.data = []
         self.data_temp = []
         # Data from jsonp
         self.jsonp_data_flag = False
+        self.jsonp_data_url_list = [] # DEM 2017/07/27: List of JSON data sources
 
         # set drilldown data
         self.drilldown_data = []
         self.drilldown_data_temp = []
-        
+
         # javascript
         self.jscript_head_flag = False
         self.jscript_head = kwargs.get('jscript_head', None)
@@ -212,10 +221,10 @@ class Highchart(object):
         self.drilldown_data_set_count += 1
         if self.drilldown_flag == False:
             self.drilldown_flag = True
-        
+
         kwargs.update({'id':id})
         series_data = Series(data, series_type=series_type, **kwargs)
-       
+
         series_data.__options__().update(SeriesOptions(series_type=series_type, **kwargs).__options__())
         self.drilldown_data_temp.append(series_data)
 
@@ -225,12 +234,17 @@ class Highchart(object):
         the data_src is the https link for data
         and it must be in jsonp format
         """
-        self.jsonp_data_flag = True
-        self.jsonp_data_url = json.dumps(data_src)
-        if data_name == 'data':
-            data_name = 'json_'+ data_name
-        self.jsonp_data = data_name
+        if not self.jsonp_data_flag:
+            self.jsonp_data_flag = True
+
+            if data_name == 'data':
+                data_name = 'json_'+ data_name
+
+            self.jsonp_data = data_name
         self.add_data_set(RawJavaScriptText(data_name), series_type, name=name, **kwargs)
+        # DEM 2017/07/27: Append new JSON data source to a list instead of
+        #                 replacing whatever already exists
+        self.jsonp_data_url_list.append(json.dumps(data_src))
 
 
     def add_JSscript(self, js_script, js_loc):
@@ -297,9 +311,14 @@ class Highchart(object):
 
         self.buildcontainer()
         self.option = json.dumps(self.options, cls = HighchartsEncoder)
-        self.setoption = json.dumps(self.setOptions, cls = HighchartsEncoder) 
+        self.setoption = json.dumps(self.setOptions, cls = HighchartsEncoder)
         self.data = json.dumps(self.data_temp, cls = HighchartsEncoder)
-        
+
+        # DEM 2017/04/25: Make 'data' available as an array
+        # ... this permits jinja2 array access to each data definition
+        # ... which is useful for looping over multiple data sources
+        self.data_list = [json.dumps(x, cls = HighchartsEncoder) for x in self.data_temp]
+
         if self.drilldown_flag: 
             self.drilldown_data = json.dumps(self.drilldown_data_temp, cls = HighchartsEncoder)
         self._htmlcontent = self.template_content_highcharts.render(chart=self).encode('utf-8')
@@ -323,13 +342,27 @@ class Highchart(object):
         if self.drilldown_flag:
             self.add_JSsource('http://code.highcharts.com/modules/drilldown.js')
 
-        self.header_css = [
-            '<link href="%s" rel="stylesheet" />' % h for h in self.CSSsource
-        ]
 
-        self.header_js = [
-            '<script type="text/javascript" src="%s"></script>' % h for h in self.JSsource
-        ]
+
+        if self.offline:
+            opener = urllib.request.build_opener()
+            opener.addheaders = [('User-Agent', 'Mozilla/5.0')]
+
+            self.header_css = [
+                '<style>%s</style>' % opener.open(h).read() for h in self.CSSsource
+            ]
+
+            self.header_js = [
+                '<script type="text/javascript">%s</script>' % opener.open(h).read() for h in self.JSsource
+            ]
+        else:
+            self.header_css = [
+                '<link href="%s" rel="stylesheet" />' % h for h in self.CSSsource
+            ]
+
+            self.header_js = [
+                '<script type="text/javascript" src="%s"></script>' % h for h in self.JSsource
+            ]
 
         self.htmlheader = ''
         for css in self.header_css:
