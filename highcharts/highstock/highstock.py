@@ -61,10 +61,10 @@ class Highstock(object):
         
         # set Javascript src, Highcharts lib needs to make sure it's up to date
        
-        """
+        
         在线获取
         self.JSsource = [
-                'https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js',
+                'https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.1/jquery.min.js',
                 'https://code.highcharts.com/stock/6/highstock.js',
                 'https://code.highcharts.com/stock/6/modules/exporting.js',
                 'https://code.highcharts.com/6/highcharts-more.js',
@@ -74,8 +74,8 @@ class Highstock(object):
         self.CSSsource = [
                 'https://www.highcharts.com/highslide/highslide.css',
             ]
+        
         """
-
         self.JSsource = [
                 'http://127.0.0.1:808/resource/jquery.min.js',
                 'http://127.0.0.1:808/resource/highstock.js',
@@ -87,7 +87,7 @@ class Highstock(object):
         self.CSSsource = [
                 'http://127.0.0.1:808/resource/highslide.css',
             ]
-
+        """
         # set data
         self.data = []
         self.data_temp = []
